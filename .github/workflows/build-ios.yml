@@ -1,0 +1,36 @@
+name: Build unsigned iOS app
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ParcelAndPort-iOS-Project.zip
+      - .github/workflows/build-ios.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract source project
+        run: unzip -q ParcelAndPort-iOS-Project.zip -d source
+      - name: Verify game rules and presentation logic
+        working-directory: source/ParcelAndPort
+        run: node --test tests/engine.test.cjs tests/ui-logic.test.cjs tests/visuals.test.cjs
+      - name: Build iPhone and iPad IPA
+        working-directory: source/ParcelAndPort
+        run: bash scripts/build-ipa.sh --unsigned
+      - name: Validate IPA archive
+        working-directory: source/ParcelAndPort
+        run: unzip -t build/ParcelAndPort-unsigned.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ParcelAndPort-unsigned
+          path: source/ParcelAndPort/build/ParcelAndPort-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14
