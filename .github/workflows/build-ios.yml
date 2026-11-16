@@ -12,23 +12,47 @@ permissions:
   contents: read
 
 jobs:
+  graphics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - run: unzip -q ParcelAndPort-iOS-Project.zip -d source
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - name: Install browser verification tools
+        working-directory: source/ParcelAndPort
+        run: |
+          npm install --no-save --package-lock=false playwright@1.64.1
+          npx playwright install --with-deps chromium webkit
+      - name: Verify real 3D rendering and eight-player layout
+        working-directory: source/ParcelAndPort
+        run: node tests/browser-graphics.cjs
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: ParcelAndPort-Graphics
+          path: source/ParcelAndPort/graphics-report/
+          if-no-files-found: error
+          retention-days: 14
   build:
     runs-on: macos-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Extract source project
         run: unzip -q ParcelAndPort-iOS-Project.zip -d source
-      - name: Verify game rules and presentation logic
+      - name: Verify game rules and 3D presentation logic
         working-directory: source/ParcelAndPort
-        run: node --test tests/engine.test.cjs tests/ui-logic.test.cjs tests/visuals.test.cjs
+        run: node --test tests/*.test.cjs
       - name: Build iPhone and iPad IPA
         working-directory: source/ParcelAndPort
         run: bash scripts/build-ipa.sh --unsigned
       - name: Validate IPA archive
         working-directory: source/ParcelAndPort
         run: unzip -t build/ParcelAndPort-unsigned.ipa
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: ParcelAndPort-unsigned
           path: source/ParcelAndPort/build/ParcelAndPort-unsigned.ipa
